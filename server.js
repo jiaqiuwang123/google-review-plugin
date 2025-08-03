@@ -7,9 +7,19 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Enable CORS with appropriate configuration for your domain
+/ Setup allowed origins
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+const corsOrigins = [...allowedOrigins, 'http://localhost:8000', 'http://localhost:3000', 'http://127.0.0.1:8000'];
+
+// Apply CORS BEFORE defining routes
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+  origin: function (origin, callback) {
+    if (!origin || corsOrigins.includes(origin) || corsOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET'],
   credentials: false
 }));
