@@ -31,16 +31,33 @@ app.get('/api/google-reviews', async (req, res) => {
       `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,reviews,user_ratings_total&key=${apiKey}`
     );
 
-    // Extract relevant data
-    const { name, rating, reviews, user_ratings_total } = response.data.result;
+    console.log('Google API Response Status:', response.data.status);
+    console.log('Google API Response:', JSON.stringify(response.data, null, 2));
+
+    // Check if API returned an error
+    if (response.data.status !== 'OK') {
+      throw new Error(`Google Places API error: ${response.data.status} - ${response.data.error_message || 'Unknown error'}`);
+    }
+
+    // Check if result exists
+    if (!response.data.result) {
+      throw new Error('No result returned from Google Places API. Please check your Place ID.');
+    }
+
+    // Extract relevant data with fallbacks
+    const result = response.data.result;
+    const name = result.name || 'Business';
+    const rating = result.rating || 0;
+    const reviews = result.reviews || [];
+    const user_ratings_total = result.user_ratings_total || 0;
     
     // Handle case where reviews might be undefined or empty
     if (!reviews || reviews.length === 0) {
       return res.json({
-        name: name || 'Business',
-        rating: rating || 0,
+        name,
+        rating,
         reviews: [],
-        user_ratings_total: user_ratings_total || 0
+        user_ratings_total
       });
     }
     
@@ -67,6 +84,25 @@ app.get('/api/google-reviews', async (req, res) => {
       error: 'Failed to fetch reviews from Google API',
       details: error.message 
     });
+  }
+});
+
+// Debug endpoint to test Google API configuration
+app.get('/debug', async (req, res) => {
+  try {
+    const placeId = process.env.GOOGLE_PLACE_ID;
+    const apiKey = process.env.GOOGLE_API_KEY;
+    
+    res.json({
+      hasPlaceId: !!placeId,
+      hasApiKey: !!apiKey,
+      placeIdLength: placeId ? placeId.length : 0,
+      apiKeyLength: apiKey ? apiKey.length : 0,
+      placeIdPrefix: placeId ? placeId.substring(0, 10) + '...' : 'Not set',
+      apiKeyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : 'Not set'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
