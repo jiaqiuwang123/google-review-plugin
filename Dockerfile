@@ -1,12 +1,18 @@
-FROM node:18-slim
+FROM node:18-alpine
 
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
-RUN npm install --production
 
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy application files
 COPY . .
 
+# Expose port
 EXPOSE 8080
 
-CMD ["node", "server.js"]
+# Start the application
+CMD ["npm", "start"]

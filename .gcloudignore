@@ -1,0 +1,23 @@
+# Ignore development files
+.git
+.gitignore
+node_modules
+README.md
+DEPLOYMENT.md
+deploy.sh
+
+# Ignore non-essential files
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Keep only essential files for deployment
+!package.json
+!server.js
+!admin.html
+!squarespace-final.html
+!dynamic-widget.js
+!google-reviews.js
+!squarespace-dynamic.html
+!Dockerfile
