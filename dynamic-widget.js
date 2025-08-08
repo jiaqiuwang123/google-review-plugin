@@ -106,7 +106,7 @@
     
     .gr-dynamic-grid {
       display: grid !important;
-      grid-template-columns: repeat(${config.reviews_per_page || 5}, 1fr) !important;
+      grid-template-columns: repeat(${Math.min(config.reviews_per_page || 5, 5)}, 1fr) !important;
       gap: 15px !important;
       min-width: 100% !important;
       flex-shrink: 0 !important;
@@ -303,6 +303,9 @@
     styleSheet.textContent = getStyles(CONFIG);
     document.head.appendChild(styleSheet);
     
+    // Set up read more handlers
+    setupReadMoreHandlers();
+    
     const container = document.getElementById(CONFIG.containerId);
     if (!container) {
       console.error('Container not found:', CONFIG.containerId);
@@ -463,6 +466,27 @@
     return html;
   }
 
+  function setupReadMoreHandlers() {
+    // Use event delegation for dynamically created read more buttons
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.classList.contains('gr-dynamic-more')) {
+        const textEl = e.target.parentNode;
+        const fullText = decodeURIComponent(textEl.dataset.full);
+        const isClipped = textEl.classList.contains('clipped');
+        
+        if (isClipped) {
+          // Expand - show full text
+          textEl.innerHTML = fullText + '<div class="gr-dynamic-more">Read less</div>';
+          textEl.classList.remove('clipped');
+        } else {
+          // Collapse - show truncated text
+          textEl.innerHTML = fullText.substring(0, 150) + '...<div class="gr-dynamic-more">Read more</div>';
+          textEl.classList.add('clipped');
+        }
+      }
+    });
+  }
+
   function setupEventListeners() {
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
@@ -492,29 +516,6 @@
       });
     });
     
-    // Read more functionality
-    const readMoreButtons = document.querySelectorAll('.gr-dynamic-more');
-    readMoreButtons.forEach(button => {
-      button.addEventListener('click', function() {
-        const textEl = this.parentNode;
-        const fullText = decodeURIComponent(textEl.dataset.full);
-        const isClipped = textEl.classList.contains('clipped');
-        
-        if (isClipped) {
-          textEl.innerHTML = fullText + '<div class="gr-dynamic-more">Read less</div>';
-          textEl.classList.remove('clipped');
-        } else {
-          textEl.innerHTML = fullText.substring(0, 150) + '...<div class="gr-dynamic-more">Read more</div>';
-          textEl.classList.add('clipped');
-        }
-        
-        // Re-add event listener
-        const newButton = textEl.querySelector('.gr-dynamic-more');
-        if (newButton) {
-          newButton.addEventListener('click', arguments.callee);
-        }
-      });
-    });
   }
 
   function updateCarousel() {

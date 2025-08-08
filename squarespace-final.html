@@ -44,8 +44,9 @@
     }
   }
 
-  // Inject CSS with current configuration
+  // Inject CSS with current configuration  
   function injectStyles() {
+    const reviewsPerPage = Math.min(CONFIG.reviewsPerPage, 5);
     const css = `
       #${CONTAINER_ID} {
         font-family: Arial, sans-serif !important;
@@ -128,7 +129,7 @@
       
       .grd-slide {
         display: grid !important;
-        grid-template-columns: repeat(${Math.min(CONFIG.reviewsPerPage, 3)}, 1fr) !important;
+        grid-template-columns: repeat(${reviewsPerPage}, 1fr) !important;
         gap: 15px !important;
         min-width: 100% !important;
         flex-shrink: 0 !important;
@@ -331,6 +332,27 @@
     });
   }
 
+  function setupReadMoreHandlers() {
+    // Use event delegation for dynamically created read more buttons
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.classList.contains('grd-more')) {
+        const textEl = e.target.parentNode;
+        const fullText = decodeURIComponent(textEl.dataset.full);
+        const isExpanded = textEl.classList.contains('expanded');
+        
+        if (isExpanded) {
+          // Collapse - show truncated text
+          textEl.innerHTML = fullText.substring(0, 150) + '...<div class="grd-more">Read more</div>';
+          textEl.classList.remove('expanded');
+        } else {
+          // Expand - show full text
+          textEl.innerHTML = fullText + '<div class="grd-more">Read less</div>';
+          textEl.classList.add('expanded');
+        }
+      }
+    });
+  }
+
   function setupCarousel(reviewsLength) {
     totalSlides = Math.ceil(reviewsLength / CONFIG.reviewsPerPage);
     currentSlide = 0;
@@ -363,27 +385,6 @@
       };
     });
     
-    // Read more functionality
-    document.querySelectorAll('.grd-more').forEach(button => {
-      button.onclick = function() {
-        const textEl = this.parentNode;
-        const fullText = decodeURIComponent(textEl.dataset.full);
-        const isExpanded = textEl.classList.contains('expanded');
-        
-        if (isExpanded) {
-          textEl.innerHTML = fullText.substring(0, 150) + '...<div class="grd-more">Read more</div>';
-          textEl.classList.remove('expanded');
-        } else {
-          textEl.innerHTML = fullText + '<div class="grd-more">Read less</div>';
-          textEl.classList.add('expanded');
-        }
-        
-        const newButton = textEl.querySelector('.grd-more');
-        if (newButton) {
-          newButton.onclick = arguments.callee;
-        }
-      };
-    });
     
     if (CONFIG.autoplay && totalSlides > 1) {
       startAutoplay();
@@ -496,6 +497,7 @@
   async function init() {
     await loadConfig();
     injectStyles();
+    setupReadMoreHandlers(); // Set up read more handlers early
     await loadAndDisplayReviews();
   }
 
