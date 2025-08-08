@@ -2,10 +2,60 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// Initialize SQLite database
+const db = new sqlite3.Database('reviews_config.db');
+
+// Initialize database tables
+db.serialize(() => {
+  // Configuration table
+  db.run(`CREATE TABLE IF NOT EXISTS config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  
+  // Admin users table
+  db.run(`CREATE TABLE IF NOT EXISTS admin_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password_hash TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  
+  // Insert default configuration
+  db.run(`INSERT OR IGNORE INTO config (key, value) VALUES 
+    ('max_reviews', '15'),
+    ('reviews_per_page', '5'),
+    ('show_review_text', 'true'),
+    ('star_color', '#FFC107'),
+    ('autoplay', 'false'),
+    ('autoplay_interval', '5000')`);
+    
+  // Create default admin user (username: admin, password: admin123)
+  const defaultPasswordHash = bcrypt.hashSync('admin123', 10);
+  db.run(`INSERT OR IGNORE INTO admin_users (username, password_hash) VALUES ('admin', ?)`, [defaultPasswordHash]);
+});
+
+// Configure sessions
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'google-reviews-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+}));
+
+// Parse JSON bodies
+app.use(express.json());
 
 / Setup allowed origins
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
@@ -23,6 +73,135 @@ app.use(cors({
   methods: ['GET'],
   credentials: false
 }));
+
+// Middleware to check admin authentication
+function requireAuth(req, res, next) {
+  if (req.session && req.session.adminId) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Authentication required' });
+  }
+}
+
+// Admin login endpoint
+app.post('/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+  
+  db.get('SELECT * FROM admin_users WHERE username = ?', [username], (err, user) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    req.session.adminId = user.id;
+    req.session.username = user.username;
+    res.json({ success: true, username: user.username });
+  });
+});
+
+// Admin logout endpoint
+app.post('/admin/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ success: true });
+});
+
+// Check admin session status
+app.get('/admin/status', (req, res) => {
+  if (req.session && req.session.adminId) {
+    res.json({ authenticated: true, username: req.session.username });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
+
+// Get configuration endpoint
+app.get('/admin/config', requireAuth, (req, res) => {
+  db.all('SELECT key, value FROM config', (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    const config = {};
+    rows.forEach(row => {
+      let value = row.value;
+      // Try to parse as JSON for boolean/number values
+      try {
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (!isNaN(value)) value = parseInt(value);
+      } catch (e) {
+        // Keep as string if parsing fails
+      }
+      config[row.key] = value;
+    });
+    
+    res.json(config);
+  });
+});
+
+// Update configuration endpoint
+app.post('/admin/config', requireAuth, (req, res) => {
+  const updates = req.body;
+  
+  const updatePromises = Object.entries(updates).map(([key, value]) => {
+    return new Promise((resolve, reject) => {
+      const stringValue = typeof value === 'boolean' ? value.toString() : value.toString();
+      db.run(
+        'INSERT OR REPLACE INTO config (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+        [key, stringValue],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  });
+  
+  Promise.all(updatePromises)
+    .then(() => {
+      res.json({ success: true, message: 'Configuration updated successfully' });
+    })
+    .catch((err) => {
+      console.error('Error updating config:', err);
+      res.status(500).json({ error: 'Failed to update configuration' });
+    });
+});
+
+// Get public configuration (for frontend widget)
+app.get('/api/config', (req, res) => {
+  db.all('SELECT key, value FROM config', (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    const config = {};
+    rows.forEach(row => {
+      let value = row.value;
+      try {
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (!isNaN(value)) value = parseInt(value);
+      } catch (e) {
+        // Keep as string if parsing fails
+      }
+      config[row.key] = value;
+    });
+    
+    res.json(config);
+  });
+});
+
+// Serve admin dashboard
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
 
 // Endpoint to fetch Google reviews
 app.get('/api/google-reviews', async (req, res) => {
@@ -71,8 +250,18 @@ app.get('/api/google-reviews', async (req, res) => {
       });
     }
     
+    // Get max_reviews from database configuration
+    const maxReviews = await new Promise((resolve) => {
+      db.get('SELECT value FROM config WHERE key = ?', ['max_reviews'], (err, row) => {
+        if (err || !row) resolve(15); // fallback to 15
+        else resolve(parseInt(row.value) || 15);
+      });
+    });
+    
+    const limitedReviews = reviews.slice(0, maxReviews);
+    
     // Format reviews to include only necessary information and protect privacy
-    const formattedReviews = reviews.map(review => ({
+    const formattedReviews = limitedReviews.map(review => ({
       author_name: review.author_name,
       profile_photo_url: review.profile_photo_url,
       rating: review.rating,
@@ -86,7 +275,8 @@ app.get('/api/google-reviews', async (req, res) => {
       name,
       rating,
       reviews: formattedReviews,
-      user_ratings_total
+      user_ratings_total,
+      max_reviews_returned: maxReviews
     });
   } catch (error) {
     console.error('Error fetching reviews:', error);

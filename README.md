@@ -78,4 +78,3 @@ Include the script and use the custom element:
 - `GOOGLE_PLACE_ID`: Business place ID from Google
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed domains
 - `PORT`: Server port (default: 8080)# google-review-plugin
-

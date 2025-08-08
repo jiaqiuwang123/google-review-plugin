@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Reviews Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #4285F4;
+            font-size: 24px;
+        }
+        
+        .logout-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+        
+        .login-form {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: 50px auto;
+        }
+        
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4285F4;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            background-color: #3367d6;
+        }
+        
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .dashboard {
+            display: none;
+        }
+        
+        .config-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .config-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .config-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .config-item label {
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .config-item input,
+        .config-item select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .config-item input[type="color"] {
+            height: 40px;
+            cursor: pointer;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #4285F4;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .preview-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .preview-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .save-btn {
+            background-color: #28a745;
+            margin-top: 20px;
+            width: auto;
+            padding: 12px 30px;
+        }
+        
+        .save-btn:hover {
+            background-color: #218838;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Form -->
+        <div id="loginForm" class="login-form">
+            <h2>Admin Login</h2>
+            <div id="loginError" class="error" style="display: none;"></div>
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required value="admin">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required placeholder="admin123">
+                </div>
+                <button type="submit" class="btn" id="loginBtn">Login</button>
+            </form>
+            <div class="loading" id="loginLoading">Logging in...</div>
+        </div>
+        
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard">
+            <div class="header">
+                <h1>Google Reviews Admin Dashboard</h1>
+                <div>
+                    <span id="welcomeMsg">Welcome, admin</span>
+                    <button class="logout-btn" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+            
+            <div id="configError" class="error" style="display: none;"></div>
+            <div id="configSuccess" class="success" style="display: none;"></div>
+            
+            <div class="config-section">
+                <h3>Widget Configuration</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="maxReviews">Maximum Reviews to Display:</label>
+                        <input type="number" id="maxReviews" min="5" max="20" value="15">
+                    </div>
+                    
+                    <div class="config-item">
+                        <label for="reviewsPerPage">Reviews Per Page:</label>
+                        <input type="number" id="reviewsPerPage" min="3" max="10" value="5">
+                    </div>
+                    
+                    <div class="config-item">
+                        <label for="starColor">Star Color:</label>
+                        <input type="color" id="starColor" value="#FFC107">
+                    </div>
+                    
+                    <div class="config-item">
+                        <label>Show Review Text:</label>
+                        <label class="switch">
+                            <input type="checkbox" id="showReviewText" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="config-item">
+                        <label>Enable Autoplay:</label>
+                        <label class="switch">
+                            <input type="checkbox" id="autoplay">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="config-item">
+                        <label for="autoplayInterval">Autoplay Interval (seconds):</label>
+                        <input type="number" id="autoplayInterval" min="3" max="15" value="5">
+                    </div>
+                </div>
+                
+                <button class="btn save-btn" id="saveConfigBtn">Save Configuration</button>
+            </div>
+            
+            <div class="preview-section">
+                <h3>Live Preview</h3>
+                <div id="reviewsPreview">Loading preview...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let currentConfig = {};
+        
+        // Check authentication status on page load
+        document.addEventListener('DOMContentLoaded', checkAuthStatus);
+        
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/status`);
+                const data = await response.json();
+                
+                if (data.authenticated) {
+                    showDashboard(data.username);
+                    loadConfig();
+                } else {
+                    showLoginForm();
+                }
+            } catch (error) {
+                showLoginForm();
+            }
+        }
+        
+        // Login form handler
+        document.getElementById('loginFormElement').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            document.getElementById('loginBtn').disabled = true;
+            document.getElementById('loginLoading').style.display = 'block';
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showDashboard(data.username);
+                    loadConfig();
+                } else {
+                    showError('loginError', data.error || 'Login failed');
+                }
+            } catch (error) {
+                showError('loginError', 'Network error. Please try again.');
+            } finally {
+                document.getElementById('loginBtn').disabled = false;
+                document.getElementById('loginLoading').style.display = 'none';
+            }
+        });
+        
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await fetch(`${API_BASE}/admin/logout`, { method: 'POST' });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+            showLoginForm();
+        });
+        
+        // Save configuration handler
+        document.getElementById('saveConfigBtn').addEventListener('submit', saveConfiguration);
+        
+        async function saveConfiguration() {
+            const config = {
+                max_reviews: document.getElementById('maxReviews').value,
+                reviews_per_page: document.getElementById('reviewsPerPage').value,
+                star_color: document.getElementById('starColor').value,
+                show_review_text: document.getElementById('showReviewText').checked,
+                autoplay: document.getElementById('autoplay').checked,
+                autoplay_interval: document.getElementById('autoplayInterval').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('configSuccess', 'Configuration saved successfully!');
+                    loadPreview(); // Refresh preview
+                } else {
+                    showError('configError', data.error || 'Failed to save configuration');
+                }
+            } catch (error) {
+                showError('configError', 'Network error. Please try again.');
+            }
+        }
+        
+        async function loadConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/config`);
+                const config = await response.json();
+                
+                currentConfig = config;
+                
+                // Populate form fields
+                document.getElementById('maxReviews').value = config.max_reviews || 15;
+                document.getElementById('reviewsPerPage').value = config.reviews_per_page || 5;
+                document.getElementById('starColor').value = config.star_color || '#FFC107';
+                document.getElementById('showReviewText').checked = config.show_review_text !== false;
+                document.getElementById('autoplay').checked = config.autoplay === true;
+                document.getElementById('autoplayInterval').value = config.autoplay_interval || 5;
+                
+                loadPreview();
+            } catch (error) {
+                showError('configError', 'Failed to load configuration');
+            }
+        }
+        
+        async function loadPreview() {
+            try {
+                const response = await fetch(`${API_BASE}/api/google-reviews`);
+                const data = await response.json();
+                
+                // Simple preview display
+                const previewHtml = `
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                            <div style="display: flex; align-items: center; font-weight: bold;">
+                                <span style="color: ${currentConfig.star_color || '#FFC107'}; margin-right: 5px;">⭐</span>
+                                Google Reviews
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 20px; font-weight: bold;">${data.rating?.toFixed(1) || '0.0'}</span>
+                                <span>${'★'.repeat(Math.floor(data.rating || 0))}</span>
+                                <span>(${data.user_ratings_total || 0})</span>
+                            </div>
+                        </div>
+                        <div style="color: #666;">
+                            Displaying ${Math.min(data.reviews?.length || 0, currentConfig.max_reviews || 15)} reviews
+                            ${currentConfig.show_review_text ? 'with' : 'without'} review text
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('reviewsPreview').innerHTML = previewHtml;
+            } catch (error) {
+                document.getElementById('reviewsPreview').innerHTML = 
+                    '<div style="color: #dc3545;">Failed to load preview</div>';
+            }
+        }
+        
+        function showDashboard(username) {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('welcomeMsg').textContent = `Welcome, ${username}`;
+        }
+        
+        function showLoginForm() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'none';
+        }
+        
+        function showError(elementId, message) {
+            const errorEl = document.getElementById(elementId);
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showSuccess(elementId, message) {
+            const successEl = document.getElementById(elementId);
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            setTimeout(() => {
+                successEl.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Add event listeners for real-time preview updates
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputs = ['maxReviews', 'reviewsPerPage', 'starColor', 'showReviewText', 'autoplay', 'autoplayInterval'];
+            inputs.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', () => {
+                        setTimeout(loadPreview, 300); // Debounce preview updates
+                    });
+                }
+            });
+            
+            // Fix save button event listener
+            document.getElementById('saveConfigBtn').addEventListener('click', saveConfiguration);
+        });
+    </script>
+</body>
+</html>
