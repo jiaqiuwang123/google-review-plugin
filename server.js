@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -17,6 +18,7 @@ const config = {
 };
 
 app.use(express.json());
+app.use(express.static('public'));
 
 // CORS setup
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
@@ -39,8 +41,13 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Google Reviews API',
     status: 'running',
-    endpoints: ['/health', '/debug', '/api/config', '/api/google-reviews']
+    endpoints: ['/health', '/debug', '/api/config', '/api/google-reviews', '/admin']
   });
+});
+
+// Serve admin dashboard
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 // Health check
@@ -67,6 +74,24 @@ app.get('/debug', (req, res) => {
 // Configuration endpoint
 app.get('/api/config', (req, res) => {
   res.json(config);
+});
+
+// Update configuration endpoint
+app.post('/api/config', (req, res) => {
+  try {
+    const updates = req.body;
+    
+    // Update in-memory config
+    Object.keys(updates).forEach(key => {
+      if (config.hasOwnProperty(key)) {
+        config[key] = updates[key];
+      }
+    });
+    
+    res.json({ success: true, message: 'Configuration updated successfully', config });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update configuration', details: error.message });
+  }
 });
 
 // Google reviews endpoint

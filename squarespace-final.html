@@ -1,0 +1,511 @@
+<!-- SQUARESPACE GOOGLE REVIEWS WIDGET -->
+<!-- Copy EVERYTHING below this line into your Squarespace Markdown block -->
+
+<div id="google-reviews-widget"></div>
+
+<script type="text/javascript">
+(function() {
+  'use strict';
+  
+  // Update this URL with your actual Cloud Run service URL
+  const API_BASE = 'https://google-reviews-api-74886105711.us-central1.run.app';
+  const CONTAINER_ID = 'google-reviews-widget';
+  
+  let CONFIG = {
+    maxReviews: 15,
+    reviewsPerPage: 5,
+    showReviewText: true,
+    starColor: '#FFC107',
+    autoplay: false,
+    autoplayInterval: 5000
+  };
+  
+  let currentSlide = 0;
+  let totalSlides = 0;
+  let autoplayTimer = null;
+
+  // Load configuration from admin dashboard
+  async function loadConfig() {
+    try {
+      const response = await fetch(`${API_BASE}/api/config`);
+      if (response.ok) {
+        const config = await response.json();
+        CONFIG = {
+          maxReviews: config.max_reviews || 15,
+          reviewsPerPage: config.reviews_per_page || 5,
+          showReviewText: config.show_review_text !== false,
+          starColor: config.star_color || '#FFC107',
+          autoplay: config.autoplay === true,
+          autoplayInterval: (config.autoplay_interval || 5) * 1000
+        };
+      }
+    } catch (error) {
+      console.warn('Using default configuration:', error);
+    }
+  }
+
+  // Inject CSS with current configuration
+  function injectStyles() {
+    const css = `
+      #${CONTAINER_ID} {
+        font-family: Arial, sans-serif !important;
+        max-width: 1200px !important;
+        margin: 20px auto !important;
+      }
+      
+      .grd-header {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 15px 20px !important;
+        background-color: #f8f9fa !important;
+        border-radius: 8px !important;
+        margin-bottom: 15px !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+      }
+      
+      .grd-logo {
+        display: flex !important;
+        align-items: center !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        color: #333 !important;
+      }
+      
+      .grd-rating {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+      }
+      
+      .grd-rating-value {
+        font-size: 24px !important;
+        font-weight: bold !important;
+        color: #333 !important;
+      }
+      
+      .grd-stars {
+        display: flex !important;
+      }
+      
+      .grd-star {
+        color: ${CONFIG.starColor} !important;
+        font-size: 18px !important;
+      }
+      
+      .grd-count {
+        color: #666 !important;
+        font-size: 14px !important;
+      }
+      
+      .grd-button {
+        background-color: #4285F4 !important;
+        color: white !important;
+        padding: 10px 16px !important;
+        border-radius: 4px !important;
+        text-decoration: none !important;
+        font-weight: bold !important;
+        font-size: 14px !important;
+      }
+      
+      .grd-button:hover {
+        background-color: #3367d6 !important;
+        color: white !important;
+        text-decoration: none !important;
+      }
+      
+      .grd-carousel {
+        position: relative !important;
+        overflow: hidden !important;
+        margin-bottom: 20px !important;
+      }
+      
+      .grd-track {
+        display: flex !important;
+        transition: transform 0.3s ease !important;
+      }
+      
+      .grd-slide {
+        display: grid !important;
+        grid-template-columns: repeat(${Math.min(CONFIG.reviewsPerPage, 3)}, 1fr) !important;
+        gap: 15px !important;
+        min-width: 100% !important;
+        flex-shrink: 0 !important;
+      }
+      
+      .grd-card {
+        background-color: #fff !important;
+        border: 1px solid #e1e5e9 !important;
+        border-radius: 8px !important;
+        padding: 20px !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        min-height: 180px !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+      
+      .grd-card:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+      }
+      
+      .grd-author {
+        display: flex !important;
+        align-items: center !important;
+        margin-bottom: 12px !important;
+      }
+      
+      .grd-avatar {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 50% !important;
+        margin-right: 12px !important;
+        background: #eee !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: #999 !important;
+        font-size: 16px !important;
+      }
+      
+      .grd-name {
+        font-weight: bold !important;
+        color: #333 !important;
+      }
+      
+      .grd-time {
+        font-size: 12px !important;
+        color: #666 !important;
+      }
+      
+      .grd-review-rating {
+        margin-bottom: 10px !important;
+      }
+      
+      .grd-text {
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+        color: #333 !important;
+        flex-grow: 1 !important;
+        max-height: 100px !important;
+        overflow: hidden !important;
+      }
+      
+      .grd-text.expanded {
+        max-height: none !important;
+      }
+      
+      .grd-more {
+        color: #4285F4 !important;
+        cursor: pointer !important;
+        font-size: 12px !important;
+        font-weight: bold !important;
+        margin-top: 8px !important;
+      }
+      
+      .grd-controls {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 15px !important;
+        margin-top: 20px !important;
+      }
+      
+      .grd-nav {
+        background-color: #ddd !important;
+        border: none !important;
+        border-radius: 50% !important;
+        width: 40px !important;
+        height: 40px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+        font-size: 18px !important;
+      }
+      
+      .grd-nav:hover {
+        background-color: #ccc !important;
+      }
+      
+      .grd-dots {
+        display: flex !important;
+        gap: 8px !important;
+      }
+      
+      .grd-dot {
+        width: 10px !important;
+        height: 10px !important;
+        border-radius: 50% !important;
+        background-color: #ddd !important;
+        cursor: pointer !important;
+      }
+      
+      .grd-dot.active {
+        background-color: #4285F4 !important;
+      }
+      
+      .grd-loading {
+        text-align: center !important;
+        padding: 40px !important;
+        color: #666 !important;
+      }
+      
+      .grd-error {
+        text-align: center !important;
+        padding: 40px !important;
+        color: #d32f2f !important;
+        background-color: #ffebee !important;
+        border-radius: 8px !important;
+      }
+      
+      @media (max-width: 768px) {
+        .grd-header {
+          flex-direction: column !important;
+          text-align: center !important;
+        }
+        
+        .grd-slide {
+          grid-template-columns: 1fr !important;
+        }
+      }
+    `;
+
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  function renderStars(rating) {
+    let html = '';
+    const fullStars = Math.floor(rating);
+    const hasHalf = rating % 1 >= 0.5;
+    const empty = 5 - fullStars - (hasHalf ? 1 : 0);
+    
+    for (let i = 0; i < fullStars; i++) html += '<span class="grd-star">★</span>';
+    if (hasHalf) html += '<span class="grd-star">★</span>';
+    for (let i = 0; i < empty; i++) html += '<span class="grd-star" style="opacity:0.3">★</span>';
+    return html;
+  }
+
+  function renderReviewCard(review) {
+    const textContent = CONFIG.showReviewText && review.text ? review.text : '';
+    const shouldTruncate = textContent.length > 150;
+    
+    return `
+      <div class="grd-card">
+        <div class="grd-author">
+          <div class="grd-avatar">
+            ${review.profile_photo_url ? 
+              `<img src="${review.profile_photo_url}" alt="${review.author_name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` :
+              '👤'
+            }
+          </div>
+          <div>
+            <div class="grd-name">${review.author_name}</div>
+            <div class="grd-time">${review.relative_time_description}</div>
+          </div>
+        </div>
+        <div class="grd-review-rating">${renderStars(review.rating)}</div>
+        ${textContent ? `
+          <div class="grd-text" data-full="${encodeURIComponent(textContent)}">
+            ${shouldTruncate ? textContent.substring(0, 150) + '...' : textContent}
+            ${shouldTruncate ? '<div class="grd-more">Read more</div>' : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  function updateCarousel() {
+    const track = document.querySelector('.grd-track');
+    const dots = document.querySelectorAll('.grd-dot');
+    
+    if (track) {
+      track.style.transform = `translateX(-${currentSlide * 100}%)`;
+    }
+    
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentSlide);
+    });
+  }
+
+  function setupCarousel(reviewsLength) {
+    totalSlides = Math.ceil(reviewsLength / CONFIG.reviewsPerPage);
+    currentSlide = 0;
+    
+    const prevBtn = document.querySelector('.grd-prev');
+    const nextBtn = document.querySelector('.grd-next');
+    const dots = document.querySelectorAll('.grd-dot');
+    
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+        updateCarousel();
+        resetAutoplay();
+      };
+    }
+    
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        currentSlide = (currentSlide + 1) % totalSlides;
+        updateCarousel();
+        resetAutoplay();
+      };
+    }
+    
+    dots.forEach((dot, index) => {
+      dot.onclick = () => {
+        currentSlide = index;
+        updateCarousel();
+        resetAutoplay();
+      };
+    });
+    
+    // Read more functionality
+    document.querySelectorAll('.grd-more').forEach(button => {
+      button.onclick = function() {
+        const textEl = this.parentNode;
+        const fullText = decodeURIComponent(textEl.dataset.full);
+        const isExpanded = textEl.classList.contains('expanded');
+        
+        if (isExpanded) {
+          textEl.innerHTML = fullText.substring(0, 150) + '...<div class="grd-more">Read more</div>';
+          textEl.classList.remove('expanded');
+        } else {
+          textEl.innerHTML = fullText + '<div class="grd-more">Read less</div>';
+          textEl.classList.add('expanded');
+        }
+        
+        const newButton = textEl.querySelector('.grd-more');
+        if (newButton) {
+          newButton.onclick = arguments.callee;
+        }
+      };
+    });
+    
+    if (CONFIG.autoplay && totalSlides > 1) {
+      startAutoplay();
+    }
+  }
+
+  function startAutoplay() {
+    autoplayTimer = setInterval(() => {
+      currentSlide = (currentSlide + 1) % totalSlides;
+      updateCarousel();
+    }, CONFIG.autoplayInterval);
+  }
+
+  function stopAutoplay() {
+    if (autoplayTimer) {
+      clearInterval(autoplayTimer);
+      autoplayTimer = null;
+    }
+  }
+
+  function resetAutoplay() {
+    stopAutoplay();
+    if (CONFIG.autoplay && totalSlides > 1) {
+      startAutoplay();
+    }
+  }
+
+  async function loadAndDisplayReviews() {
+    const container = document.getElementById(CONTAINER_ID);
+    
+    container.innerHTML = '<div class="grd-loading">Loading reviews... ⭐</div>';
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/google-reviews`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      
+      const data = await response.json();
+      const reviews = data.reviews?.slice(0, CONFIG.maxReviews) || [];
+      const rating = data.rating || 0;
+      const reviewCount = data.user_ratings_total || 0;
+      
+      if (reviews.length === 0) {
+        container.innerHTML = `
+          <div class="grd-header">
+            <div class="grd-logo">⭐ Google Reviews</div>
+            <div class="grd-rating">
+              <span class="grd-rating-value">${rating.toFixed(1)}</span>
+              <div class="grd-stars">${renderStars(rating)}</div>
+              <span class="grd-count">(${reviewCount})</span>
+            </div>
+            <a href="https://search.google.com/local/writereview" class="grd-button">Write Review</a>
+          </div>
+          <div class="grd-loading">No reviews available yet. Be the first to leave a review!</div>
+        `;
+        return;
+      }
+      
+      // Create slides
+      const slides = [];
+      for (let i = 0; i < Math.ceil(reviews.length / CONFIG.reviewsPerPage); i++) {
+        const slideReviews = reviews.slice(i * CONFIG.reviewsPerPage, (i + 1) * CONFIG.reviewsPerPage);
+        const slideHTML = slideReviews.map(review => renderReviewCard(review)).join('');
+        slides.push(`<div class="grd-slide">${slideHTML}</div>`);
+      }
+      
+      const needsCarousel = slides.length > 1;
+      
+      container.innerHTML = `
+        <div class="grd-header">
+          <div class="grd-logo">⭐ Google Reviews</div>
+          <div class="grd-rating">
+            <span class="grd-rating-value">${rating.toFixed(1)}</span>
+            <div class="grd-stars">${renderStars(rating)}</div>
+            <span class="grd-count">(${reviewCount})</span>
+          </div>
+          <a href="https://search.google.com/local/writereview" class="grd-button">Write Review</a>
+        </div>
+        
+        <div class="grd-carousel">
+          <div class="grd-track">
+            ${slides.join('')}
+          </div>
+        </div>
+        
+        ${needsCarousel ? `
+          <div class="grd-controls">
+            <button class="grd-nav grd-prev">‹</button>
+            <div class="grd-dots">
+              ${slides.map((_, i) => `<div class="grd-dot ${i === 0 ? 'active' : ''}"></div>`).join('')}
+            </div>
+            <button class="grd-nav grd-next">›</button>
+          </div>
+        ` : ''}
+      `;
+      
+      if (needsCarousel) {
+        setupCarousel(reviews.length);
+      }
+      
+    } catch (error) {
+      container.innerHTML = `
+        <div class="grd-error">
+          <h3>Unable to load reviews</h3>
+          <p>Please try again later</p>
+        </div>
+      `;
+    }
+  }
+
+  async function init() {
+    await loadConfig();
+    injectStyles();
+    await loadAndDisplayReviews();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+
+<!-- Copy EVERYTHING above this line into your Squarespace Markdown block -->
